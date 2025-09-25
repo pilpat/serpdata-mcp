@@ -213,7 +213,40 @@ class LLMHandler:
                 raise LLMError(f"Anthropic API connection error: {e}")
 
     async def _call_google(self, prompt: str) -> Dict[str, Any]:
-        """Call Google Gemini API."""
+        """Call Google Gemini API using structured output."""
+        try:
+            # Import the new Google GenAI client
+            from google import genai
+            from models import ContentRecommendation
+
+            # Create async client instance
+            client = genai.Client(api_key=self.api_key)
+
+            # For structured output, we need to use the ContentRecommendation model
+            response = client.models.generate_content(
+                model=self.model,
+                contents=prompt,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": ContentRecommendation,
+                    "temperature": self.temperature,
+                    "max_output_tokens": self.max_tokens or 4000,
+                    # Disable thinking for better JSON compliance
+                    "thinking_config": {"thinking_budget": 0}
+                }
+            )
+
+            # The response will be properly structured JSON
+            return response.parsed.model_dump() if response.parsed else json.loads(response.text)
+
+        except ImportError:
+            # Fallback to aiohttp approach if google-genai not available
+            return await self._call_google_fallback(prompt)
+        except Exception as e:
+            raise LLMError(f"Google API error: {str(e)}")
+
+    async def _call_google_fallback(self, prompt: str) -> Dict[str, Any]:
+        """Fallback method using aiohttp for Google API calls."""
         headers = {
             "Content-Type": "application/json"
         }
@@ -256,11 +289,21 @@ class LLMHandler:
 
                     content = result["candidates"][0]["content"]["parts"][0]["text"]
 
-                    # Parse the JSON response
+                    # Enhanced JSON parsing with better error handling
                     try:
                         return json.loads(content)
                     except json.JSONDecodeError as e:
-                        raise LLMError(f"Invalid JSON response from Google: {e}")
+                        # Try to extract JSON from content
+                        try:
+                            json_start = content.find("{")
+                            json_end = content.rfind("}") + 1
+                            if json_start != -1 and json_end != -1:
+                                json_content = content[json_start:json_end]
+                                return json.loads(json_content)
+                            else:
+                                raise LLMError(f"No valid JSON found in response: {content[:200]}...")
+                        except json.JSONDecodeError:
+                            raise LLMError(f"Invalid JSON response from Google: {e}")
 
             except aiohttp.ClientError as e:
                 raise LLMError(f"Google API connection error: {e}")
