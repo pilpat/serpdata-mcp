@@ -51,7 +51,7 @@ class LLMHandler:
         defaults = {
             LLMProvider.OPENAI: "gpt-4-turbo-preview",
             LLMProvider.ANTHROPIC: "claude-3-sonnet-20240229",
-            LLMProvider.GOOGLE: "gemini-pro"
+            LLMProvider.GOOGLE: "gemini-2.5-flash"
         }
         return defaults[provider]
 
