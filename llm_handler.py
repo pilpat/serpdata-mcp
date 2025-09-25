@@ -215,20 +215,20 @@ class LLMHandler:
     async def _call_google(self, prompt: str) -> Dict[str, Any]:
         """Call Google Gemini API using structured output."""
         try:
-            # Import the new Google GenAI client
+            # Import the new Google GenAI client and Gemini-compatible models
             from google import genai
-            from models import ContentRecommendation
+            from gemini_models import GeminiContentRecommendation, convert_to_standard_model
 
             # Create async client instance
             client = genai.Client(api_key=self.api_key)
 
-            # For structured output, we need to use the ContentRecommendation model
+            # For structured output, we need to use the Gemini-compatible model
             response = client.models.generate_content(
                 model=self.model,
                 contents=prompt,
                 config={
                     "response_mime_type": "application/json",
-                    "response_schema": ContentRecommendation,
+                    "response_schema": GeminiContentRecommendation,
                     "temperature": self.temperature,
                     "max_output_tokens": self.max_tokens or 4000,
                     # Disable thinking for better JSON compliance
@@ -236,8 +236,14 @@ class LLMHandler:
                 }
             )
 
-            # The response will be properly structured JSON
-            return response.parsed.model_dump() if response.parsed else json.loads(response.text)
+            # Convert the Gemini response to standard format
+            if response.parsed:
+                return convert_to_standard_model(response.parsed)
+            else:
+                # Fallback: parse JSON text and convert
+                gemini_data = json.loads(response.text)
+                gemini_obj = GeminiContentRecommendation(**gemini_data)
+                return convert_to_standard_model(gemini_obj)
 
         except ImportError:
             # Fallback to aiohttp approach if google-genai not available
