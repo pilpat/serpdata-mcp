@@ -1,0 +1,59 @@
+{
+  "name": "SerpData SEO Intelligence",
+  "description": "AI-powered SERP analysis and content strategy recommendations using SerpData API and LLM intelligence",
+  "version": "1.0.0",
+  "source": {
+    "type": "local",
+    "path": "serpdata_server.py"
+  },
+  "environment": {
+    "python": "3.12",
+    "dependencies": [
+      "fastmcp>=2.12.0",
+      "pydantic>=2.11.0",
+      "aiohttp>=3.9.0",
+      "openai>=1.12.0",
+      "anthropic>=0.18.0",
+      "google-generativeai>=0.3.0"
+    ],
+    "variables": {
+      "SERPDATA_API_KEY": "${SERPDATA_API_KEY}",
+      "LLM_API_KEY": "${LLM_API_KEY}",
+      "LLM_PROVIDER": "openai"
+    }
+  },
+  "deployment": {
+    "transport": "http",
+    "log_level": "info"
+  },
+  "metadata": {
+    "author": "FastMCP SerpData Integration",
+    "tags": ["search", "seo", "serp", "google", "ai", "content-strategy"],
+    "capabilities": {
+      "tools": [
+        "search_and_analyze",
+        "get_raw_serp_data",
+        "analyze_existing_serp",
+        "quick_serp_insights",
+        "competition_analysis",
+        "get_content_structure",
+        "entity_analysis"
+      ],
+      "resources": [
+        "serpdata://api-status",
+        "serpdata://supported-languages",
+        "serpdata://analysis-types"
+      ]
+    },
+    "features": [
+      "Real-time SERP data from SerpData API",
+      "Multi-provider LLM analysis (OpenAI, Anthropic, Google)",
+      "Semantic SEO analysis",
+      "Competition analysis and content gaps",
+      "AI Overview optimization",
+      "Entity relationship mapping",
+      "Content structure recommendations",
+      "Keyword strategy development"
+    ]
+  }
+}
