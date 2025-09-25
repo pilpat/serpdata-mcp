@@ -212,28 +212,29 @@ class LLMHandler:
             except aiohttp.ClientError as e:
                 raise LLMError(f"Anthropic API connection error: {e}")
 
-    async def _call_google(self, prompt: str) -> Dict[str, Any]:
-        """Call Google Gemini API using structured output."""
+    def _call_google_sync(self, prompt: str) -> Dict[str, Any]:
+        """Synchronous helper for Google GenAI calls."""
         try:
             # Import the new Google GenAI client and Gemini-compatible models
             from google import genai
+            from google.genai import types
             from gemini_models import GeminiContentRecommendation, convert_to_standard_model
 
-            # Create async client instance
+            # Create synchronous client instance
             client = genai.Client(api_key=self.api_key)
 
             # For structured output, we need to use the Gemini-compatible model
             response = client.models.generate_content(
                 model=self.model,
                 contents=prompt,
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": GeminiContentRecommendation,
-                    "temperature": self.temperature,
-                    "max_output_tokens": self.max_tokens or 4000,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=GeminiContentRecommendation,
+                    temperature=self.temperature,
+                    max_output_tokens=self.max_tokens or 4000,
                     # Disable thinking for better JSON compliance
-                    "thinking_config": {"thinking_budget": 0}
-                }
+                    thinking_config=types.ThinkingConfig(thinking_budget=0)
+                )
             )
 
             # Convert the Gemini response to standard format
@@ -245,10 +246,30 @@ class LLMHandler:
                 gemini_obj = GeminiContentRecommendation(**gemini_data)
                 return convert_to_standard_model(gemini_obj)
 
-        except ImportError:
-            # Fallback to aiohttp approach if google-genai not available
-            return await self._call_google_fallback(prompt)
         except Exception as e:
+            # Re-raise with more context for debugging
+            raise LLMError(f"Google GenAI API error: {type(e).__name__}: {str(e)}")
+
+    async def _call_google(self, prompt: str) -> Dict[str, Any]:
+        """Call Google Gemini API using structured output (async wrapper)."""
+        try:
+            # Import asyncio for thread execution
+            import asyncio
+
+            # Check if google-genai is available
+            try:
+                import google.genai
+            except ImportError:
+                # Fallback to aiohttp approach if google-genai not available
+                return await self._call_google_fallback(prompt)
+
+            # Run synchronous Google API call in thread to avoid blocking
+            result = await asyncio.to_thread(self._call_google_sync, prompt)
+            return result
+
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Google API call failed: {type(e).__name__}: {str(e)}")
             raise LLMError(f"Google API error: {str(e)}")
 
     async def _call_google_fallback(self, prompt: str) -> Dict[str, Any]:
