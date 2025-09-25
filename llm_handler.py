@@ -21,6 +21,36 @@ class LLMError(Exception):
     pass
 
 
+def extract_error_message(e: Exception) -> str:
+    """Extract meaningful error message from any exception type."""
+    # For Pydantic ValidationError
+    if hasattr(e, 'errors'):
+        try:
+            errors = e.errors()
+            if errors:
+                return f"Validation failed: {json.dumps(errors, indent=2)}"
+        except Exception:
+            pass
+
+    # Try common exception attributes
+    if hasattr(e, 'message') and e.message:
+        return str(e.message)
+    if hasattr(e, 'detail') and e.detail:
+        return str(e.detail)
+    if hasattr(e, 'args') and e.args:
+        args_str = ' '.join(str(arg) for arg in e.args if arg)
+        if args_str:
+            return args_str
+
+    # Use string representation
+    error_str = str(e)
+    if error_str:
+        return error_str
+
+    # Final fallback using repr
+    return f"{e.__class__.__name__}: {repr(e)}"
+
+
 class LLMHandler:
     """Unified handler for multiple LLM providers."""
 
@@ -106,7 +136,9 @@ class LLMHandler:
             return result
 
         except Exception as e:
-            raise LLMError(f"Analysis failed: {str(e)}") from e
+            error_msg = extract_error_message(e)
+            provider_info = f"[Provider: {self.provider.value}, Model: {self.model}]"
+            raise LLMError(f"Analysis failed {provider_info}: {error_msg}") from e
 
     async def _call_openai(self, prompt: str) -> Dict[str, Any]:
         """Call OpenAI API with structured output."""
@@ -247,8 +279,11 @@ class LLMHandler:
                 return convert_to_standard_model(gemini_obj)
 
         except Exception as e:
-            # Re-raise with more context for debugging
-            raise LLMError(f"Google GenAI API error: {type(e).__name__}: {str(e)}")
+            # Extract meaningful error message
+            error_msg = extract_error_message(e)
+            error_type = type(e).__name__
+            # Include full context for debugging
+            raise LLMError(f"Google GenAI API error ({error_type}): {error_msg}")
 
     async def _call_google(self, prompt: str) -> Dict[str, Any]:
         """Call Google Gemini API using structured output (async wrapper)."""
